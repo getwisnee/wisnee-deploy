@@ -60,6 +60,11 @@ services:
       - server-avatars:/app/public/avatars
       - server-payment-attachments:/app/public/payment-attachments
       - server-expense-attachments:/app/public/expense-attachments
+      # Vistas previas (og:image) de documentos compartibles. Como el resto de
+      # subidas bajo /app/public, necesita su volumen propio: sin esto, cada
+      # recreate del contenedor borraba las imágenes subidas (la BD guardaba el
+      # nombre, pero el archivo desaparecía → preview rota sin caer al default).
+      - server-og:/app/public/og
       - server-storage:/app/storage
     expose: ["4000"]
     healthcheck:
@@ -113,6 +118,7 @@ volumes:
   server-avatars:
   server-payment-attachments:
   server-expense-attachments:
+  server-og:
   server-storage:
   certbot-webroot:
   certbot-conf:
