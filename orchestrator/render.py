@@ -21,6 +21,9 @@ def render(answers: dict, secrets: dict) -> None:
     # TZ a nivel de proceso: alinea crons, formateo y `now()` con la zona de la
     # operación. Default America/Lima si no se preguntó (instalaciones viejas).
     timezone = answers.get("timezone") or "America/Lima"
+    # Moneda de la instalación (ISO 4217). Define símbolo y formato de todos los
+    # montos. Default PEN si no se preguntó (instalaciones viejas).
+    currency = (answers.get("currency") or "PEN").upper()
 
     _write_env(config.ENV_DIR / "db.env", {
         "POSTGRES_USER": config.DB_USER,
@@ -44,6 +47,9 @@ def render(answers: dict, secrets: dict) -> None:
         # server (crons, períodos, formateo, logs) corre en esta zona. La lee
         # `config/date-tools` en el backend.
         "TZ": timezone,
+        # Moneda de la instalación (ISO 4217). La lee `config/currency` en el
+        # backend para el símbolo y el formato de todos los montos.
+        "CURRENCY": currency,
         "SECRET_KEY": secrets["SECRET_KEY"],
         "INIT_TOKEN": secrets["INIT_TOKEN"],
         "FISCAL_ENCRYPTION_KEY": secrets["FISCAL_ENCRYPTION_KEY"],
@@ -193,6 +199,14 @@ def reconcile_service_envs() -> list:
     # reinicia. No pisamos un valor ya presente.
     if "TZ" not in server:
         server["TZ"] = "America/Lima"
+        server_changed = True
+
+    # CURRENCY: droplets instalados antes del soporte multi-moneda no la tienen.
+    # La sembramos con el default (PEN) para no cambiarles el comportamiento;
+    # quien quiera otra moneda edita server.env y reinicia. No pisamos un valor
+    # ya presente.
+    if "CURRENCY" not in server:
+        server["CURRENCY"] = "PEN"
         server_changed = True
 
     if server_changed:

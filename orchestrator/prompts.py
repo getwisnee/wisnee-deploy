@@ -31,6 +31,15 @@ def ask_init() -> dict:
         "Zona horaria de la operación (IANA, ej. America/Lima, America/Santiago)",
         "America/Lima",
     )
+    # Moneda de la instalación (ISO 4217). Define el símbolo y el formato de TODOS
+    # los montos (UI, recibos, reportes). Va como CURRENCY del proceso, como la
+    # zona horaria. Soportadas: PEN, USD, MXN, COP, ARS, CLP, BOB, PYG, UYU, VES,
+    # GTQ, HNL, NIO, CRC, DOP, PAB, CUP, EUR. Cambiarla luego solo cambia cómo se
+    # muestran los montos (no convierte valores ya guardados).
+    currency = _ask(
+        "Moneda (ISO 4217, ej. PEN, USD, MXN, COP, CLP, ARS)",
+        "PEN",
+    ).upper()
     # `edge` = última main (rolling, ideal para demo). `vX.Y.Z` = release
     # inmutable y coherente (recomendado para prod). Cambiable luego con
     # `./wisnee update --tag <tag>`.
@@ -55,6 +64,7 @@ def ask_init() -> dict:
         "domain": domain,
         "email": email,
         "timezone": timezone,
+        "currency": currency,
         "tag": tag,
         "ghcr_user": ghcr_user,
         "ghcr_token": ghcr_token,
