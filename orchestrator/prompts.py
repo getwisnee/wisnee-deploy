@@ -1,5 +1,10 @@
-"""Preguntas interactivas del `init`. Los secrets NO se preguntan: se autogeneran."""
+"""Preguntas interactivas del `init`. Los secrets NO se preguntan: se autogeneran.
 
+También expone `answers_from_env()`: la misma estructura de respuestas pero leída
+de variables de entorno, para el modo DESATENDIDO (`init --unattended`) que usan
+cloud-init / CI cuando el panel aprovisiona un droplet sin intervención humana."""
+
+import os
 from getpass import getpass
 
 
@@ -58,6 +63,59 @@ def ask_init() -> dict:
             "Endpoint público del bridge (host:port que pondrán los Mikrotiks)",
             f"{domain}:{wg_port}",
         )
+
+    return {
+        "env": env,
+        "domain": domain,
+        "email": email,
+        "timezone": timezone,
+        "currency": currency,
+        "tag": tag,
+        "ghcr_user": ghcr_user,
+        "ghcr_token": ghcr_token,
+        "wg_port": wg_port,
+        "wg_endpoint": wg_endpoint,
+    }
+
+
+def answers_from_env() -> dict:
+    """Mismas respuestas que `ask_init()` pero desde variables de entorno (modo
+    desatendido). Las requeridas sin valor abortan con exit != 0 (cloud-init lo
+    deja en su log). Variables:
+
+      WISNEE_ENV (prod|demo, default prod), WISNEE_DOMAIN*, WISNEE_EMAIL*,
+      WISNEE_TIMEZONE (default America/Lima), WISNEE_CURRENCY (default PEN),
+      WISNEE_TAG (default edge en demo / latest en prod), GHCR_USER*, GHCR_TOKEN*,
+      WISNEE_WG_PORT (default 51820), WISNEE_WG_ENDPOINT (default <domain>:<port>).
+      (* = requerida)
+    """
+
+    def need(name: str) -> str:
+        value = (os.environ.get(name) or "").strip()
+        if not value:
+            raise SystemExit(f"\n✖ Falta la variable de entorno requerida: {name}")
+        return value
+
+    def opt(name: str, default: str = "") -> str:
+        value = (os.environ.get(name) or "").strip()
+        return value if value else default
+
+    env = opt("WISNEE_ENV", "prod").lower()
+    if env not in ("prod", "demo"):
+        raise SystemExit("\n✖ WISNEE_ENV debe ser 'prod' o 'demo'.")
+
+    domain = need("WISNEE_DOMAIN").lower().rstrip(".")
+    email = need("WISNEE_EMAIL")
+    timezone = opt("WISNEE_TIMEZONE", "America/Lima")
+    currency = opt("WISNEE_CURRENCY", "PEN").upper()
+    tag = opt("WISNEE_TAG", "edge" if env == "demo" else "latest")
+    ghcr_user = need("GHCR_USER")
+    ghcr_token = need("GHCR_TOKEN")
+
+    wg_port, wg_endpoint = "51820", ""
+    if env == "prod":
+        wg_port = opt("WISNEE_WG_PORT", "51820")
+        wg_endpoint = opt("WISNEE_WG_ENDPOINT", f"{domain}:{wg_port}")
 
     return {
         "env": env,

@@ -3,6 +3,7 @@ backup, cert, credentials."""
 
 import argparse
 import datetime
+import os
 import re
 import subprocess
 import sys
@@ -25,13 +26,26 @@ def _require_configured() -> dict:
 # ---- comandos ----
 
 def cmd_init(args):
+    unattended = getattr(args, "unattended", False)
+
     if (config.ENV_DIR / "server.env").exists() and not args.force:
+        if unattended:
+            # cloud-init puede re-correr: ya configurado = idempotente, exit 0.
+            print("✔ Ya configurado (existe env/server.env); nada que hacer.")
+            return
         _die("Ya está configurado (existe env/server.env). Para actualizar usá "
              "`./wisnee update`. Para reconfigurar desde cero, `init --force` "
              "(¡regenera secrets y rompe la BD existente!).")
 
-    answers = prompts.ask_init()
+    answers = prompts.answers_from_env() if unattended else prompts.ask_init()
     secrets = secretgen.generate()
+    # En desatendido el INIT_TOKEN puede venir pre-fijado (WISNEE_INIT_TOKEN) para
+    # que el orquestador (panel) lo conozca y pueda llamar al setup del CRM sin
+    # leer el credentials.txt del server.
+    if unattended:
+        forced_token = (os.environ.get("WISNEE_INIT_TOKEN") or "").strip()
+        if forced_token:
+            secrets["INIT_TOKEN"] = forced_token
 
     print("\n→ Generando configuración y secrets…")
     render.render(answers, secrets)
@@ -276,6 +290,10 @@ def build_parser():
     pi.add_argument("--force", action="store_true", help="Reconfigurar (REGENERA secrets)")
     pi.add_argument("--skip-provision", action="store_true", help="No correr Ansible (sistema ya provisto)")
     pi.add_argument("--no-harden", action="store_true", help="No endurecer SSH a key-only")
+    pi.add_argument("--unattended", action="store_true",
+                    help="Sin prompts: lee la config de variables de entorno "
+                         "(WISNEE_DOMAIN, WISNEE_EMAIL, GHCR_USER/TOKEN, …). "
+                         "Para cloud-init/CI.")
     pi.set_defaults(func=cmd_init)
 
     pu = sub.add_parser("update", help="Baja imágenes nuevas, migra y recrea")

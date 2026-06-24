@@ -55,6 +55,35 @@ sudo ./wisnee init [--force] [--skip-provision] [--no-harden]
 
 > Requiere `python3` (viene en Ubuntu) y, para `init`, permisos de root.
 
+### Init desatendido (cloud-init / panel)
+
+`./wisnee init --unattended` no hace preguntas: lee la config de variables de
+entorno. Es lo que usa el **panel** al aprovisionar un droplet (vía cloud-init).
+
+| Variable | Requerida | Default | Notas |
+|----------|-----------|---------|-------|
+| `WISNEE_ENV` | no | `prod` | `prod` \| `demo` |
+| `WISNEE_DOMAIN` | **sí** | — | FQDN, ej. `cliente.wisnee.com` |
+| `WISNEE_EMAIL` | **sí** | — | Para Let's Encrypt |
+| `WISNEE_TIMEZONE` | no | `America/Lima` | IANA |
+| `WISNEE_CURRENCY` | no | `PEN` | ISO 4217 |
+| `WISNEE_TAG` | no | `latest` (prod) / `edge` (demo) | Tag de imágenes |
+| `GHCR_USER` | **sí** | — | Usuario de GitHub (pull GHCR) |
+| `GHCR_TOKEN` | **sí** | — | PAT `read:packages` |
+| `WISNEE_INIT_TOKEN` | no | autogenerado | Pre-fija el `INIT_TOKEN` para que el orquestador conozca el token de setup |
+| `WISNEE_WG_PORT` | no | `51820` | Solo prod |
+| `WISNEE_WG_ENDPOINT` | no | `<domain>:<port>` | Solo prod |
+
+```bash
+export WISNEE_DOMAIN=cliente.wisnee.com WISNEE_EMAIL=ops@wisnee.com \
+       GHCR_USER=getwisnee GHCR_TOKEN=ghp_xxx WISNEE_TAG=v2.0.0-beta.2 \
+       WISNEE_INIT_TOKEN=$(openssl rand -hex 24)
+sudo -E ./wisnee init --unattended
+```
+
+Es idempotente: si el droplet ya está configurado, `--unattended` termina con
+éxito sin tocar nada (clave para que cloud-init pueda re-correr).
+
 ## Estructura
 
 ```
