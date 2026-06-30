@@ -45,6 +45,14 @@ def ask_init() -> dict:
         "Moneda (ISO 4217, ej. PEN, USD, MXN, COP, CLP, ARS)",
         "PEN",
     ).upper()
+    # Licencia de Materis (opcional). El CRM consulta su estado contra Materis y
+    # SOLO INFORMA: sin clave corre como "sin licencia" y no se bloquea nada. La
+    # clave es por suscripción (la entrega Materis); se puede dejar vacía acá y
+    # cargarla luego en env/server.env. URL y slug usan sus defaults de prod.
+    materis_license_key = _ask(
+        "Clave de licencia Materis (opcional, Enter para omitir)",
+        "", required=False,
+    )
     # `edge` = última main (rolling, ideal para demo). `vX.Y.Z` = release
     # inmutable y coherente (recomendado para prod). Cambiable luego con
     # `./wisnee update --tag <tag>`.
@@ -70,6 +78,7 @@ def ask_init() -> dict:
         "email": email,
         "timezone": timezone,
         "currency": currency,
+        "materis_license_key": materis_license_key,
         "tag": tag,
         "ghcr_user": ghcr_user,
         "ghcr_token": ghcr_token,
@@ -108,6 +117,9 @@ def answers_from_env() -> dict:
     email = need("WISNEE_EMAIL")
     timezone = opt("WISNEE_TIMEZONE", "America/Lima")
     currency = opt("WISNEE_CURRENCY", "PEN").upper()
+    # Licencia de Materis (opcional, por suscripción). La inyecta el panel al
+    # aprovisionar; vacía = "sin licencia" (solo informa, no bloquea).
+    materis_license_key = opt("WISNEE_MATERIS_LICENSE_KEY", "")
     tag = opt("WISNEE_TAG", "edge" if env == "demo" else "latest")
     ghcr_user = need("GHCR_USER")
     ghcr_token = need("GHCR_TOKEN")
@@ -123,6 +135,7 @@ def answers_from_env() -> dict:
         "email": email,
         "timezone": timezone,
         "currency": currency,
+        "materis_license_key": materis_license_key,
         "tag": tag,
         "ghcr_user": ghcr_user,
         "ghcr_token": ghcr_token,

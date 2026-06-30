@@ -71,6 +71,7 @@ entorno. Es lo que usa el **panel** al aprovisionar un droplet (vía cloud-init)
 | `GHCR_USER` | **sí** | — | Usuario de GitHub (pull GHCR) |
 | `GHCR_TOKEN` | **sí** | — | PAT `read:packages` |
 | `WISNEE_INIT_TOKEN` | no | autogenerado | Pre-fija el `INIT_TOKEN` para que el orquestador conozca el token de setup |
+| `WISNEE_MATERIS_LICENSE_KEY` | no | — | Clave de licencia Materis (por suscripción). Vacía = "sin licencia" (el CRM solo informa, no bloquea) |
 | `WISNEE_WG_PORT` | no | `51820` | Solo prod |
 | `WISNEE_WG_ENDPOINT` | no | `<domain>:<port>` | Solo prod |
 
@@ -116,6 +117,27 @@ Chat Node para Windows al volumen que sirve el server.
 - `wa-bridge.env:INTERNAL_SECRET` ↔ `server.env:WA_BRIDGE_SECRET`
 - `mk-bridge.env:INTERNAL_SECRET` ↔ `server.env:MK_BRIDGE_SECRET`
 - `server.env`: `SECRET_KEY`, `INIT_TOKEN`, `FISCAL_ENCRYPTION_KEY` (nadie los escribe a mano)
+
+## Actualizar variables del server (post-install)
+
+Los `env/*.env` viven en el droplet (`/opt/wisnee/env/`, modo 600) y `update`
+**no los re-renderiza** (preserva los secrets). Para cambiar o agregar una
+variable del backend (p. ej. la clave de licencia de Materis) en un droplet ya
+desplegado:
+
+```bash
+cd /opt/wisnee
+nano env/server.env            # editá/añadí la variable (ej. MATERIS_LICENSE_KEY=XXXX-...)
+docker compose -f compose/docker-compose.yml -f compose/docker-compose.prod.yml up -d server
+```
+
+El server lee el env al arrancar, así que recrear solo ese contenedor toma el
+cambio (no hace falta `init` ni tocar la BD). Para las variables nuevas que el
+stack incorpora con el tiempo (Materis incluido), `./wisnee update` las **siembra
+con su default** sin pisar lo que ya cargaste (ver `reconcile_service_envs`): así
+un `git pull` + `update` deja en `server.env` las líneas `MATERIS_URL`,
+`MATERIS_PROJECT_SLUG` y `MATERIS_LICENSE_KEY=` (vacía), listas para completar la
+clave.
 
 ## Levantar
 

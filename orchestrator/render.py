@@ -59,6 +59,13 @@ def render(answers: dict, secrets: dict) -> None:
         "MK_BRIDGE_SECRET": secrets["MK_BRIDGE_SECRET"],
         "VPN_HUB_URL": "http://vpn-hub:4300",
         "VPN_HUB_SECRET": secrets["VPN_HUB_SECRET"],
+        # Licencia de Materis (HWID + heartbeat). El CRM consulta el estado de su
+        # licencia contra Materis y SOLO INFORMA (no bloquea funciones). URL y
+        # slug usan los defaults de producción; la clave es por suscripción (la
+        # entrega Materis / la inyecta el panel) y puede ir vacía hasta cargarla.
+        "MATERIS_URL": answers.get("materis_url") or "https://admin.materis.io",
+        "MATERIS_PROJECT_SLUG": answers.get("materis_project_slug") or "wisnee",
+        "MATERIS_LICENSE_KEY": answers.get("materis_license_key", ""),
         # Demo: el frontend deshabilita acciones sensibles (vincular WhatsApp,
         # conectar/añadir Mikrotiks) y muestra un aviso. Solo true en demo.
         "DEMO_MODE": "true" if answers["env"] == "demo" else "false",
@@ -207,6 +214,21 @@ def reconcile_service_envs() -> list:
     # ya presente.
     if "CURRENCY" not in server:
         server["CURRENCY"] = "PEN"
+        server_changed = True
+
+    # Materis (licenciamiento HWID + heartbeat): droplets instalados antes del
+    # licenciamiento no tienen estas claves. Sembramos URL y slug con sus
+    # defaults de producción y dejamos la clave vacía (es por suscripción, la
+    # entrega Materis / la inyecta el panel). No pisamos valores ya presentes,
+    # así un droplet que ya cargó su clave la conserva en el próximo update.
+    if "MATERIS_URL" not in server:
+        server["MATERIS_URL"] = "https://admin.materis.io"
+        server_changed = True
+    if "MATERIS_PROJECT_SLUG" not in server:
+        server["MATERIS_PROJECT_SLUG"] = "wisnee"
+        server_changed = True
+    if "MATERIS_LICENSE_KEY" not in server:
+        server["MATERIS_LICENSE_KEY"] = ""
         server_changed = True
 
     if server_changed:
