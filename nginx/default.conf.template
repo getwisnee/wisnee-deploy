@@ -43,9 +43,21 @@ server {
     # Subidas grandes (el server acepta hasta 80 MB en express).
     client_max_body_size 80m;
 
+    # Resolución DINÁMICA del upstream vía el DNS interno de Docker (127.0.0.11,
+    # disponible en la red user-defined `wisnee`). Al poner el hostname en una
+    # VARIABLE, nginx re-resuelve la IP en cada request en vez de cachearla al
+    # arranque: si el contenedor `server`/`web` se recrea y cambia de IP (un
+    # `docker compose up -d server`, un `./wisnee update`), nginx la sigue sola y
+    # NO queda mandando a una IP muerta — esa era la causa del 502 Bad Gateway.
+    # `valid` limita el cacheo de DNS; el `./wisnee update` igual recarga nginx al
+    # final (cinturón + tiradores). `ipv6=off`: el DNS de Docker no sirve AAAA.
+    resolver 127.0.0.11 ipv6=off valid=10s;
+    set $backend server:4000;
+    set $web web:80;
+
     # API + WebSocket de WhatsApp (/api/whatsapp/ws) → backend.
     location /api/ {
-        proxy_pass http://server:4000;
+        proxy_pass http://$backend;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
@@ -61,7 +73,7 @@ server {
     # header x-internal-secret). Sin esta location caería en `location /` (SPA)
     # y el WS nunca llegaría al server → el Chat Node figura DESCONECTADO.
     location /internal/ {
-        proxy_pass http://server:4000;
+        proxy_pass http://$backend;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
@@ -74,7 +86,7 @@ server {
 
     # Estáticos servidos por el server bajo /public (logos, adjuntos).
     location /public/ {
-        proxy_pass http://server:4000;
+        proxy_pass http://$backend;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto https;
     }
@@ -88,7 +100,7 @@ server {
     # clientes, no emite/anula recibos, no se ven PDFs, etc.
     # (El regex no matchea /api/* — esas siguen yendo por `location /api/`.)
     location ~ ^/(customers|debts|invoices|projects|receipts|v)(/|$) {
-        proxy_pass http://server:4000;
+        proxy_pass http://$backend;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -97,7 +109,7 @@ server {
 
     # SPA (nginx interno del contenedor web).
     location / {
-        proxy_pass http://web:80;
+        proxy_pass http://$web;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
