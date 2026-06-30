@@ -65,6 +65,11 @@ services:
       # recreate del contenedor borraba las imágenes subidas (la BD guardaba el
       # nombre, pero el archivo desaparecía → preview rota sin caer al default).
       - server-og:/app/public/og
+      # Otras subidas PÚBLICAS bajo /app/public que también necesitan su volumen:
+      # sin esto, cada recreate del contenedor borraba el archivo y la BD quedaba
+      # apuntando a una imagen inexistente → rota. Mismo caso que `og`.
+      - server-payment-qrs:/app/public/payment-qrs    # QR de métodos de pago
+      - server-news-images:/app/public/news-images     # imágenes de Noticias
       - server-storage:/app/storage
     expose: ["4000"]
     healthcheck:
@@ -119,6 +124,8 @@ volumes:
   server-payment-attachments:
   server-expense-attachments:
   server-og:
+  server-payment-qrs:
+  server-news-images:
   server-storage:
   certbot-webroot:
   certbot-conf:
