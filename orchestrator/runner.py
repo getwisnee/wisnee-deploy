@@ -34,6 +34,26 @@ def docker_login(user: str, token: str):
         input_text=token)
 
 
+def manifest_exists(image_ref: str):
+    """`True` = está, `False` = NO está, `None` = no se pudo averiguar.
+
+    Usa las credenciales del daemon (el `docker login` ya está hecho), por eso
+    sirve para los repos privados en un droplet ya instalado — a diferencia de
+    `registry.py`, que se usa en `init`, cuando docker todavía no existe.
+
+    Solo `False` ante un "not found" explícito: cualquier otro fallo (red, daemon
+    caído, permisos) es `None` y no debe bloquear el deploy.
+    """
+    r = subprocess.run(["docker", "manifest", "inspect", image_ref],
+                       capture_output=True, text=True)
+    if r.returncode == 0:
+        return True
+    err = (r.stderr or "").lower()
+    if "not found" in err or "manifest unknown" in err:
+        return False
+    return None
+
+
 def docker_prune():
     """Libera espacio antes de un pull: borra imágenes sin usar (versiones
     viejas, imágenes huérfanas de otra org/tag) y su build cache. NO toca

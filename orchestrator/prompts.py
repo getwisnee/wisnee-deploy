@@ -54,10 +54,14 @@ def ask_init() -> dict:
         "", required=False,
     )
     # `edge` = última main (rolling, ideal para demo). `vX.Y.Z` = release
-    # inmutable y coherente (recomendado para prod). Cambiable luego con
+    # inmutable y coherente (recomendado para prod). `latest` = última release
+    # ESTABLE: los prereleases (-beta/-rc) no lo mueven, así que hay que decirlo
+    # en el prompt — ofrecerlo como default sin explicarlo mandaba a elegir un
+    # tag que, en un producto todavía en beta, no existe. Cambiable luego con
     # `./wisnee update --tag <tag>`.
-    tag = _ask("Tag de imágenes (edge=rolling / vX.Y.Z=release)",
-               "edge" if env == "demo" else "latest")
+    tag = _ask(
+        "Tag de imágenes (vX.Y.Z=release / edge=última main / latest=última estable)",
+        "edge" if env == "demo" else "latest")
 
     print("\n  -- Acceso a GHCR (imágenes privadas) --")
     ghcr_user = _ask("Usuario de GitHub")

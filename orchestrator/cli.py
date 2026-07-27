@@ -8,12 +8,37 @@ import re
 import subprocess
 import sys
 
-from . import config, credentials, prompts, render, runner, secretgen
+from . import (config, credentials, prompts, registry, render, runner,
+               secretgen)
 
 
 def _die(msg: str, code: int = 1):
     print(f"\n✖ {msg}", file=sys.stderr)
     sys.exit(code)
+
+
+def _tag_hint(tag: str) -> str:
+    """Pista para el error de tag inexistente. `latest` merece explicación: es el
+    default de prod y solo lo mueven los releases ESTABLES, así que mientras el
+    producto esté en beta no apunta a nada."""
+    if tag == "latest":
+        return ("\n  Ojo: 'latest' es la última release ESTABLE. Los prereleases "
+                "(-beta/-rc) NO lo mueven, así que mientras el producto esté en "
+                "beta ese tag no existe.")
+    if tag == "edge":
+        return ("\n  'edge' se publica en cada push a main de cada repo de app. "
+                "Si falta alguna, ese repo todavía no publicó su 'edge'.")
+    return ""
+
+
+def _die_missing_images(missing: list, tag: str) -> None:
+    _die(
+        "Estas imágenes no existen en GHCR:\n"
+        + "".join(f"    ghcr.io/getwisnee/{m}\n" for m in missing)
+        + _tag_hint(tag)
+        + "\n  Elegí un tag de release publicado (ej. v2.0.0-beta.24). "
+        "Los tags salen del workflow 'Release' de wisnee-deploy."
+    )
 
 
 def _require_configured() -> dict:
@@ -46,6 +71,23 @@ def cmd_init(args):
         forced_token = (os.environ.get("WISNEE_INIT_TOKEN") or "").strip()
         if forced_token:
             secrets["INIT_TOKEN"] = forced_token
+
+    # Validar el tag ANTES de tocar la máquina: el `pull` es el último paso del
+    # init, así que un tag inexistente fallaba recién después de instalar Docker,
+    # swap, UFW y fail2ban. Se consulta GHCR por HTTP porque acá todavía no hay
+    # docker (lo instala Ansible más abajo).
+    print("\n→ Verificando que las imágenes del tag existan…")
+    missing, unknown = registry.check_images(
+        answers["env"], answers["tag"],
+        answers["ghcr_user"], answers["ghcr_token"])
+    if missing:
+        _die_missing_images(missing, answers["tag"])
+    if unknown:
+        # No decir "verificado" cuando no se pudo mirar: con un token sin
+        # read:packages GHCR responde 403 a todo y el chequeo no ve nada.
+        print(f"  ⚠ No se pudo verificar ({len(unknown)}): "
+              + ", ".join(unknown)
+              + "\n    Sigo igual; si el tag no existe, fallará en el pull.")
 
     print("\n→ Generando configuración y secrets…")
     render.render(answers, secrets)
@@ -135,6 +177,17 @@ def cmd_update(args):
     domain = cfg.get("DOMAIN")
     if domain:
         render.render_nginx(domain)
+
+    # Validar el tag ANTES de podar: la poda borra las imágenes sin usar, así que
+    # un tag inexistente dejaba el droplet sin las viejas y sin las nuevas. Acá sí
+    # hay docker (y login hecho), así que se pregunta por el daemon.
+    if args.tag:
+        missing = [f"{repo}:{t}"
+                   for repo, t in registry.expected_images(env, args.tag)
+                   if runner.manifest_exists(
+                       f"ghcr.io/{registry.ORG}/{repo}:{t}") is False]
+        if missing:
+            _die_missing_images(missing, args.tag)
 
     # Poda ANTES del pull: en un droplet chico las versiones viejas llenan el
     # disco y el pull falla con "no space left on device". Borrar imágenes sin

@@ -25,15 +25,32 @@ En el `init`, dos respuestas a tener claras:
 
 - **Tag de imágenes**: `edge` para demo (rolling, última `main`) o una versión
   de release `vX.Y.Z` para prod (inmutable, coherente, con rollback). Ver
-  "Versionado / Releases".
+  "Qué tag elegir" abajo y "Versionado / Releases".
 - **Token de GHCR**: el de la máquina es de **solo lectura** (`read:packages`)
   porque el VPS solo hace `pull`. ⚠️ NO uses acá el PAT con `write:packages`:
   ese es **solo** para el secret `GHCR_PAT` del workflow de Release.
 
-`init` hace: prompts → **autogenera todos los secrets** → render de `env/*` y
-nginx → Ansible (docker, swap, UFW, fail2ban, SSH key-only) → `docker login` +
-`pull` → migrate → `up` → emite el certificado TLS → escribe
-`/tmp/wisnee-credentials.txt` (con la URL de setup + `INIT_TOKEN`).
+`init` hace: prompts → **verifica que las imágenes del tag existan** →
+**autogenera todos los secrets** → render de `env/*` y nginx → Ansible (docker,
+swap, UFW, fail2ban, SSH key-only) → `docker login` + `pull` → migrate → `up` →
+emite el certificado TLS → escribe `/tmp/wisnee-credentials.txt` (con la URL de
+setup + `INIT_TOKEN`).
+
+### Qué tag elegir
+
+| Tag | Qué es | Cuándo |
+|-----|--------|--------|
+| `vX.Y.Z` | Pin **inmutable**: los 6 artefactos a la misma versión. Permite rollback exacto. | **Prod** |
+| `edge` | Última `main` de cada repo de app (rolling, se mueve solo). | Demo |
+| `latest` | Última release **ESTABLE**. | Prod, una vez que existan estables |
+
+> ⚠️ **`latest` solo lo mueven los releases estables.** Un prerelease
+> (`-beta`, `-rc`) **no** lo toca: mientras el producto esté en beta, `latest`
+> no apunta a ninguna versión y el `pull` falla con `... latest: not found`.
+> Es el default del prompt en prod por diseño (para cuando haya estables), así
+> que **en beta hay que escribir la versión a mano** (ej. `v2.0.0-beta.24`).
+> `init` y `update --tag` lo verifican contra GHCR antes de tocar la máquina y
+> abortan con la lista de imágenes faltantes si el tag no existe.
 
 > Cada instalación es **independiente y autocontenida**: genera sus propios
 > secrets, su propia BD y su propio certificado. Levantar una segunda máquina no
