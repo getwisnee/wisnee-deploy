@@ -94,6 +94,13 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     depends_on: [server, web]
+    # Recarga nginx cada 6 h para que tome el certificado que `certbot renew`
+    # deja en el volumen. Sin esto nginx sigue sirviendo el cert que leyó al
+    # arrancar hasta el próximo `./wisnee update`, y a los 90 días vence en
+    # memoria aunque en disco esté renovado (pasó en prod el 2026-09-12).
+    command: >
+      /bin/sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done &
+      exec nginx -g 'daemon off;'"
     ports:
       - "80:80"
       - "443:443"
@@ -105,6 +112,7 @@ services:
 
   # Renovación automática del certificado. La EMISIÓN inicial la hace el
   # orquestador (ver README: dummy-cert → certbot certonly --webroot → reload).
+  # El cert renovado lo toma el proxy en su reload periódico (ver arriba).
   certbot:
     image: certbot/certbot:latest
     restart: unless-stopped

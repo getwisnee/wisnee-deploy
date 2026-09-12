@@ -193,7 +193,9 @@ docker compose ... run --rm certbot certonly --webroot -w /var/www/certbot -d $D
 docker compose ... exec proxy nginx -s reload
 ```
 
-El servicio `certbot` del compose renueva en loop cada 12 h.
+El servicio `certbot` del compose renueva en loop cada 12 h, y el `proxy`
+recarga nginx cada 6 h para tomar el cert nuevo del volumen (nginx no relee
+el certificado del disco por sí solo).
 
 ## Versionado / Releases (tren de releases)
 
